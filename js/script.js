@@ -3,7 +3,7 @@ google.setOnLoadCallback(onGoogleLoaded);
 
 function onGoogleLoaded() {
 
-  var SITE_URL = 'https://chiffonmusic.github.io/albums-availability';
+  var SITE_URL = 'https://freakedoutgamer.github.io/albums-availability';
 
   var ALL_MARKETS = {    "AD": "COUNTRY",
     "AE": "COUNTRY",
