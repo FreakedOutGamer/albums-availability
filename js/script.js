@@ -295,7 +295,7 @@ function onGoogleLoaded() {
     evt.stopPropagation();
     evt.preventDefault();
 
-    var url = evt.dataTransfer.getData('text/plain');
+    var url = evt.dataTransfer.getData('text/plain').split('?')[0];
     if (!url) return;
     if (url.indexOf('open.spotify.com') > -1) {
       var parsed = parseUri(url.replace(/https?:\/\/open.spotify.com\//, 'spotify/'), '/');
