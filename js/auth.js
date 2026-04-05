@@ -1,87 +1,118 @@
 var Auth = {
-  clientId: '8d43aeb72ec942b08b5957e09cb20f15',
 
-  getAuthUrl: async function(siteUrl) {
-    const redirectUri = siteUrl + '?auth_callback';
-
-    // 1. Generate code_verifier
-    const codeVerifier = this._generateRandomString(64);
-
-    // 2. Create code_challenge
-    const codeChallenge = await this._generateCodeChallenge(codeVerifier);
-
-    // 3. Store verifier for later
-    localStorage.setItem('code_verifier', codeVerifier);
-
-    const params = new URLSearchParams({
-      client_id: this.clientId,
-      response_type: 'code',
-      redirect_uri: redirectUri,
-      code_challenge_method: 'S256',
-      code_challenge: codeChallenge
-    });
-
-    return `https://accounts.spotify.com/authorize?${params.toString()}`;
-  },
-
-  // ✅ NEW: handle query params instead of hash
-  parseResponse: function(url) {
-    const params = new URLSearchParams(url.search);
-    const code = params.get('code');
-
-    if (code) {
-      this.exchangeCodeForToken(code);
-    }
-  },
-
-  // ✅ NEW: exchange code → token
-  exchangeCodeForToken: async function(code) {
-    const codeVerifier = localStorage.getItem('code_verifier');
-
-    const body = new URLSearchParams({
-      client_id: this.clientId,
-      grant_type: 'authorization_code',
-      code: code,
-      redirect_uri: window.location.origin + '?auth_callback',
-      code_verifier: codeVerifier
-    });
-
-    const response = await fetch('https://accounts.spotify.com/api/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body
-    });
-
-    const data = await response.json();
-
-    if (data.access_token) {
-      Config.setToken(data.access_token);
-      Config.setExpiresAt(data.expires_in);
-
-      // ✅ NEW: store refresh token
-      if (data.refresh_token) {
-        Config.setRefreshToken(data.refresh_token);
-      }
-    }
-  },
-
-  // 🔐 PKCE helpers
-  _generateRandomString: function(length) {
-    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    return Array.from(crypto.getRandomValues(new Uint8Array(length)))
-      .map(x => possible[x % possible.length])
-      .join('');
+  _generateCodeVerifier: function() {
+    var array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    return btoa(String.fromCharCode.apply(null, array))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
   },
 
   _generateCodeChallenge: async function(verifier) {
-    const data = new TextEncoder().encode(verifier);
-    const digest = await crypto.subtle.digest('SHA-256', data);
+    var data = new TextEncoder().encode(verifier);
+    var digest = await crypto.subtle.digest('SHA-256', data);
+    return btoa(String.fromCharCode.apply(null, new Uint8Array(digest)))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  },
 
-    return btoa(String.fromCharCode(...new Uint8Array(digest)))
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/, '');
+  getAuthUrl: async function(siteUrl) {
+    var clientId    = '54e0e5bde5be499a94ecf7b31c1da2f1';
+    var redirectUri = encodeURIComponent(siteUrl + '?auth_callback');
+
+    var verifier   = this._generateCodeVerifier();
+    var challenge  = await this._generateCodeChallenge(verifier);
+    var state      = this._generateCodeVerifier(); // reuse random-string helper
+
+    sessionStorage.setItem('pkce_code_verifier', verifier);
+    sessionStorage.setItem('pkce_state', state);
+
+    return 'https://accounts.spotify.com/authorize'
+      + '?client_id='              + clientId
+      + '&redirect_uri='           + redirectUri
+      + '&response_type=code'
+      + '&code_challenge_method=S256'
+      + '&code_challenge='         + challenge
+      + '&state='                  + state;
+  },
+
+  parseResponse: async function(url) {
+    var params = new URLSearchParams(url.search);
+    var code   = params.get('code');
+    var state  = params.get('state');
+
+    var savedState = sessionStorage.getItem('pkce_state');
+    if (!state || state !== savedState) {
+      throw new Error('State mismatch – possible CSRF attack');
+    }
+    sessionStorage.removeItem('pkce_state');
+
+    if (code) {
+      await this._exchangeCodeForToken(code, url.href);
+    }
+  },
+
+  _exchangeCodeForToken: async function(code, currentUrl) {
+    var clientId    = '54e0e5bde5be499a94ecf7b31c1da2f1';
+    // Strip query string – redirect_uri must match exactly what was registered
+    var redirectUri = currentUrl.split('?')[0] + '?auth_callback';
+    var verifier    = sessionStorage.getItem('pkce_code_verifier');
+
+    if (!verifier) throw new Error('Missing PKCE code verifier');
+
+    var response = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type:    'authorization_code',
+        code:          code,
+        redirect_uri:  redirectUri,
+        client_id:     clientId,
+        code_verifier: verifier,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Token exchange failed: ' + response.status);
+    }
+
+    var data = await response.json();
+    sessionStorage.removeItem('pkce_code_verifier');
+
+    Config.setToken(data.access_token);
+    Config.setExpiresAt(data.expires_in);
+    if (data.refresh_token) {
+      Config.setRefreshToken(data.refresh_token);
+    }
+  },
+
+  refreshToken: async function() {
+    var clientId      = '54e0e5bde5be499a94ecf7b31c1da2f1';
+    var refreshToken  = Config.getRefreshToken();
+
+    if (!refreshToken) throw new Error('No refresh token available');
+
+    var response = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type:    'refresh_token',
+        refresh_token: refreshToken,
+        client_id:     clientId,
+      }),
+    });
+
+    if (!response.ok) {
+      // Refresh token revoked – force re-login
+      Config.clearAuth();
+      throw new Error('Token refresh failed: ' + response.status);
+    }
+
+    var data = await response.json();
+    Config.setToken(data.access_token);
+    Config.setExpiresAt(data.expires_in);
+    // Spotify may rotate the refresh token
+    if (data.refresh_token) {
+      Config.setRefreshToken(data.refresh_token);
+    }
+    return data.access_token;
   }
 };
