@@ -235,8 +235,17 @@ function onGoogleLoaded() {
 
   function handleFormSubmit(evt) {
     evt.preventDefault();
-    var searchValue = evt.target[0].value;
-    var uri = parseUri(searchValue);
+    var searchValue = evt.target[0].value.trim();
+    var uri;
+
+    if (searchValue.indexOf('open.spotify.com') > -1) {
+      // e.g. https://open.spotify.com/album/18qY7zpuNqeXNGywRysjxx
+      uri = parseUri(searchValue.replace(/https?:\/\/open.spotify.com\//, 'spotify/'), '/');
+    } else {
+      // e.g. spotify:album:18qY7zpuNqeXNGywRysjxx  or bare ID
+      uri = parseUri(searchValue);
+    }
+
     validateAndPerformSearch(uri);
   }
 
