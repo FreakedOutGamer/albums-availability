@@ -586,14 +586,18 @@ function onGoogleLoaded() {
     chart.draw(chartData, options);
   }
 
-  function authenticate() {
-    var authUrl = Auth.getAuthUrl(SITE_URL);
+  async function authenticate() {
+    var authUrl = await Auth.getAuthUrl(SITE_URL);
     window.location = authUrl;
   }
 
   if (location.search.indexOf('auth_callback') > 0) {
-    Auth.parseResponse(location);
-    window.location = SITE_URL;
+    Auth.parseResponse(location).then(function() {
+      window.location = SITE_URL;
+    }).catch(function(err) {
+      console.error('Auth failed:', err);
+      window.location = SITE_URL;
+    });
     return;
   }
 
