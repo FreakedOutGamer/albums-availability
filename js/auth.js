@@ -16,7 +16,7 @@ var Auth = {
 
   getAuthUrl: async function(siteUrl) {
     var clientId    = '54e0e5bde5be499a94ecf7b31c1da2f1';
-    var redirectUri = 'https://kaaes.github.io/albums-availability?auth_callback';
+    var redirectUri = 'https://freakedoutgamer.github.io/albums-availability?auth_callback';
 
     var verifier  = this._generateCodeVerifier();
     var challenge = await this._generateCodeChallenge(verifier);
