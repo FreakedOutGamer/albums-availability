@@ -57,7 +57,7 @@ var Auth = {
   _exchangeCodeForToken: async function(code, currentUrl) {
     var clientId    = '98a44d68e8014e909151e9960791499d';
     // Strip query string – redirect_uri must match exactly what was registered
-    var redirectUri = 'https://freakedoutgamer.github.io/albums-availability?auth_callback';
+    var redirectUri = 'https://freakedoutgamer.github.io/albums-availability/?auth_callback';
     var verifier    = sessionStorage.getItem('pkce_code_verifier');
 
     if (!verifier) throw new Error('Missing PKCE code verifier');
