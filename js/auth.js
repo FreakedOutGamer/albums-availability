@@ -89,7 +89,7 @@ var Auth = {
   },
 
   refreshToken: async function() {
-    var clientId      = '54e0e5bde5be499a94ecf7b31c1da2f1';
+    var clientId      = '98a44d68e8014e909151e9960791499d';
     var refreshToken  = Config.getRefreshToken();
 
     if (!refreshToken) throw new Error('No refresh token available');
