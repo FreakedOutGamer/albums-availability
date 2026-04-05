@@ -1,3 +1,16 @@
+if (location.search.indexOf('auth_callback') > 0) {
+  // Handle auth callback immediately, before loading anything else
+  Auth.parseResponse(location).then(function() {
+    window.location = 'https://freakedoutgamer.github.io/albums-availability';
+  }).catch(function(err) {
+    console.error('Auth failed:', err);
+    window.location = 'https://freakedoutgamer.github.io/albums-availability';
+  });
+} else {
+  google.load("visualization", "1", {packages:["geochart"]});
+  google.setOnLoadCallback(onGoogleLoaded);
+}
+
 google.load("visualization", "1", {packages:["geochart"]});
 google.setOnLoadCallback(onGoogleLoaded);
 
