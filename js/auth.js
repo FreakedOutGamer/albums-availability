@@ -16,22 +16,26 @@ var Auth = {
 
   getAuthUrl: async function(siteUrl) {
     var clientId    = '54e0e5bde5be499a94ecf7b31c1da2f1';
-    var redirectUri = encodeURIComponent(siteUrl + '?auth_callback');
+    var redirectUri = 'https://kaaes.github.io/albums-availability?auth_callback';
 
-    var verifier   = this._generateCodeVerifier();
-    var challenge  = await this._generateCodeChallenge(verifier);
-    var state      = this._generateCodeVerifier(); // reuse random-string helper
+    var verifier  = this._generateCodeVerifier();
+    var challenge = await this._generateCodeChallenge(verifier);
+    var state     = this._generateCodeVerifier();
 
     sessionStorage.setItem('pkce_code_verifier', verifier);
     sessionStorage.setItem('pkce_state', state);
 
-    return 'https://accounts.spotify.com/authorize'
-      + '?client_id='              + clientId
-      + '&redirect_uri='           + redirectUri
-      + '&response_type=code'
-      + '&code_challenge_method=S256'
-      + '&code_challenge='         + challenge
-      + '&state='                  + state;
+    var authUrl = new URL('https://accounts.spotify.com/authorize');
+    authUrl.search = new URLSearchParams({
+      response_type:         'code',
+      client_id:             clientId,
+      code_challenge_method: 'S256',
+      code_challenge:        challenge,
+      redirect_uri:          redirectUri,
+      state:                 state,
+    }).toString();
+
+    return authUrl.toString();
   },
 
   parseResponse: async function(url) {
